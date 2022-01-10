@@ -9,4 +9,3 @@ class Player
     @account = Account.new(INITIAL_AMOUNT)
   end
 end
-  

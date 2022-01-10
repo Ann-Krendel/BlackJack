@@ -4,15 +4,19 @@ require_relative 'hand.rb'
 require_relative 'account.rb'
 require_relative 'player.rb'
 require_relative 'dealer.rb'
+require_relative 'interface.rb'
 
 class BlackJack
-  MENU_METHODS = { 1 => :pass, 2 => :add_card, 3 => :open_cards }.freeze
+  MENU_METHODS = { 1 => :pass,\
+                   2 => :add_card,\
+                   3 => :open_cards }.freeze
 
   def initialize
-    player_setup
+    @interface = Interface.new
     @dealer = Dealer.new('Дилер')
     @game_account = Account.new
     @deck = Deck.new
+    @player = Player.new(@interface.player_setup)
   end
 
   def start
@@ -32,12 +36,6 @@ class BlackJack
     @deck = Deck.new
   end
 
-  def player_setup
-    puts 'Введите ваше имя:'
-    player_name = gets.chomp
-    @player = Player.new(player_name)
-  end
-
   def deal_initial_cards
     2.times { @player.hand.take_card_from_deck(@deck) }
     2.times { @dealer.hand.take_card_from_deck(@deck) }
@@ -49,17 +47,9 @@ class BlackJack
   end
 
   def hud
-    puts "
-    В банке: #{@game_account.amount}$
-    #{@player.name}: #{@player.account.amount}$
-    #{@dealer.name}: #{@dealer.account.amount}$
-    -------------
-    Карты #{@player.name}: #{show_hand(@player)}
-    Сумма очков: #{show_hand_value(@player)}
-    -------------
-    Карты #{@dealer.name}: #{show_hand(@dealer)}
-    Сумма очков: #{show_hand_value(@dealer)}
-    "
+    @interface.bank(@game_account.amount)
+    @interface.turn(@player.name, @player.account.amount, show_hand(@player), show_hand_value(@player))
+    @interface.turn(@dealer.name, @dealer.account.amount, show_hand(@dealer), show_hand_value(@dealer))
   end
 
   def show_hand(player)
@@ -80,15 +70,12 @@ class BlackJack
     open_cards?
     hud
     menu
-    choice = gets.chomp.to_i
+    choice = @interface.get
     send(MENU_METHODS[choice])
   end
 
   def menu
-    puts 'Ваш ход:'
-    puts '1. Пропустить'
-    puts '2. Добавить карту' if @player.hand.cards.count == 2
-    puts '3. Открыть карты'
+    @interface.blackjack_menu(@player.hand.cards.count)
   end
 
   def pass
@@ -135,29 +122,28 @@ class BlackJack
     if who_win?.nil?
       money_back
     else
-      puts "Победитель: #{who_win?.name}"
+      @interface.win(who_win?.name)
       @game_account.transfer_to(who_win?.account, @game_account.amount)
     end
   end
 
   def money_back
-    puts 'Ничья, деньги возвращаются игрокам'
+    @interface.draw
     @game_account.transfer_to(@player.account, @game_account.amount / 2)
     @game_account.transfer_to(@dealer.account, @game_account.amount)
   end
 
   def try_again?
-    puts "Хотите сыграть еще раз?
-    1. Да
-    2. Нет"
-    choice = gets.chomp.to_i
+    @interface.choice
+    choice = @interface.get
     case choice
     when 1
       hands_clear
       @open = nil
       start
     when 2
-      puts 'Повезет в следующий раз'
+      @interface.goodbye
+      return
     end
   end
 
